@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+
+# Copyright (c) 2025 Sijie Yang.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Create a new Go project (similar to cargo new)
+#
+# Note: The tool should be placed in the following directory:
+#   $GOROOT/pkg/tool/$(go env GOOS)_$(go env GOARCH)/
+
+set -e
+
+usage() {
+  echo "Usage: go-new <project_name> [--module <module_name>] [--git]"
+  echo
+  echo "Examples:"
+  echo "  go tool new myapp"
+  echo "  go tool new myapp --module github.com/user/myapp"
+  echo "  go tool new myapp --module github.com/user/myapp --git"
+  exit 1
+}
+
+if [ $# -lt 1 ]; then
+  usage
+fi
+
+NAME=""
+MODULE=""
+INIT_GIT=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --module)
+      MODULE="$2"
+      shift 2
+      ;;
+    --git)
+      INIT_GIT=1
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1"
+      usage
+      ;;
+    *)
+      if [ -z "$NAME" ]; then
+        NAME="$1"
+      else
+        echo "Unexpected argument: $1"
+        usage
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$NAME" ]; then
+  usage
+fi
+
+# Create the project directory
+if [ -d "$NAME" ]; then
+  echo "Error: directory '$NAME' already exists."
+  exit 1
+fi
+
+mkdir -p "$NAME"
+cd "$NAME"
+
+# Create go.mod
+if [ -z "$MODULE" ]; then
+  MODULE="$NAME"
+fi
+
+echo "Initializing Go module: $MODULE"
+go mod init "$MODULE" >/dev/null
+
+# Create main.go
+cat > main.go <<EOF
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello $NAME!")
+}
+EOF
+
+# Initial git (optional)
+if [ $INIT_GIT -eq 1 ]; then
+  if command -v git >/dev/null 2>&1; then
+    git init -q
+    cat > .gitignore <<EOF
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build artifacts
+bin/
+EOF
+    echo "Initialized git repository."
+  else
+    echo "Git not found, skipping git initialization."
+  fi
+fi
+
+echo "Created new Go project: $NAME"
+tree . 2>/dev/null || ls -R .
+
